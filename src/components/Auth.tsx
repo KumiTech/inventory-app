@@ -1,122 +1,207 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { LogIn } from 'lucide-react';
+import { useState } from "react";
+import { FcGoogle } from "react-icons/fc";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Auth() {
+  const { signIn, signUp, signInWithGoogle } = useAuth();
+
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { error: authError } = isLogin
-        ? await signIn(email, password)
-        : await signUp(email, password);
-
-      if (authError) {
-        setError(authError.message);
-      } else if (!isLogin) {
-        setError('');
-        alert('Registration successful! Please log in.');
+      if (isLogin) {
+        await signIn(email, password, rememberMe);
+      } else {
+        await signUp(username, email, password, confirmPassword);
+        alert("Registration successful. Please log in.");
         setIsLogin(true);
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleSignIn = () => {
+    alert("Google Sign-In clicked (static)");
+  };
+
+  const handleGoogleSignUp = () => {
+    alert("Google Sign-Up clicked (static)");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="flex items-center justify-center mb-8">
-          <div className="bg-blue-600 rounded-full p-3">
-            <LogIn className="w-8 h-8 text-white" />
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-extrabold text-gray-800">
+            {isLogin ? "Welcome Back" : "Create Account"}
+          </h2>
+          <p className="text-gray-500 text-lg mt-2 mb-4 font-semibold">
+            {isLogin
+              ? "Sign in to continue to your dashboard"
+              : "Sign up to get started instantly"}
+          </p>
         </div>
 
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">
-          Inventory Management
-        </h2>
-        <p className="text-center text-gray-600 mb-8">
-          {isLogin ? 'Sign in to your account' : 'Create a new account'}
-        </p>
+        {/* Error */}
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm font-medium">
+            {error}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Your username"
+                title="Username"
+                required
+                className="w-full rounded-lg border px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Email
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
               placeholder="you@example.com"
+              title="Email"
               required
+              className="w-full rounded-lg border px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-              placeholder="••••••••"
+              placeholder="Enter password"
+              title="Password"
               required
+              className="w-full rounded-lg border px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
+
+          {!isLogin && (
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
+                title="Confirm Password"
+                required
+                className="w-full rounded-lg border px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {isLogin && (
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                title="Remember me"
+                className="rounded border-gray-300"
+              />
+              Remember me
+            </label>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 font-semibold hover:from-blue-600 hover:to-indigo-700 transition disabled:opacity-50"
           >
-            {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
+            {loading ? "Please wait..." : isLogin ? "Sign In" : "Sign Up"}
           </button>
         </form>
 
+        {/* Google Buttons */}
+        <div className="mt-6 space-y-3">
+          {isLogin ? (
+            <button
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
+              <FcGoogle size={22} />
+              Sign in with Google
+            </button>
+          ) : (
+            <button
+              onClick={handleGoogleSignUp}
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
+              <FcGoogle size={22} />
+              Sign up with Google
+            </button>
+          )}
+        </div>
+
+        {/* Toggle */}
         <div className="mt-6 text-center">
           <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-            }}
+            onClick={() => setIsLogin(!isLogin)}
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+            {isLogin
+              ? "Don't have an account? Sign up"
+              : "Already have an account? Sign in"}
           </button>
         </div>
       </div>

@@ -1,38 +1,32 @@
 /* ---------------- IMPORTS ---------------- */
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { InventoryItem } from "../types";
 
 /* ---------------- TYPES ---------------- */
-
-type InventoryItem = {
-  id: number;
-  name: string;
-  description: string;
-  quantity: number;
-  price: number;
-  category: string;
-  sku: string;
-};
 
 type ItemFormProps = {
   item: InventoryItem | null;
   onClose: () => void;
+  onSave: (
+    item: Omit<InventoryItem, "id" | "created_at" | "updated_at" | "user_id">,
+  ) => Promise<void>;
 };
 
 /* ---------------- COMPONENT ---------------- */
 
-export default function ItemForm({ item, onClose }: ItemFormProps) {
-  const { user } = useAuth(); // still useful later for API
+export default function ItemForm({ item, onClose, onSave }: ItemFormProps) {
+  useAuth();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     quantity: 0,
     price: 0,
-    category: '',
-    sku: '',
+    category: "",
+    sku: "",
   });
 
   /* ---------------- PREFILL FORM (EDIT MODE) ---------------- */
@@ -53,12 +47,12 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
   /* ---------------- HANDLERS ---------------- */
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value, type } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? Number(value) || 0 : value,
+      [name]: type === "number" ? Number(value) || 0 : value,
     }));
   };
 
@@ -66,30 +60,23 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert('Please enter a product name');
+      alert("Please enter a product name");
       return;
     }
 
     if (formData.quantity < 0 || formData.price < 0) {
-      alert('Quantity and price cannot be negative');
+      alert("Quantity and price cannot be negative");
       return;
     }
 
     setLoading(true);
 
     try {
-      // 🔹 MOCK SAVE (simulates backend request)
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      console.log(item ? 'Updating item:' : 'Creating item:', {
-        ...formData,
-        user: user?.email,
-      });
-
+      await onSave(formData);
       onClose();
     } catch (err) {
       console.error(err);
-      alert('Failed to save item');
+      alert("Failed to save item");
     } finally {
       setLoading(false);
     }
@@ -102,11 +89,13 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-800">
-            {item ? 'Edit Item' : 'Add New Item'}
+            {item ? "Edit Item" : "Add New Item"}
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1 rounded"
+            title="Close form"
+            aria-label="Close form"
           >
             <X className="w-6 h-6" />
           </button>
@@ -114,23 +103,29 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Product Name *</label>
+            <label className="block text-sm font-medium mb-2">
+              Product Name *
+            </label>
             <input
               name="name"
               value={formData.name}
               onChange={handleChange}
               className="w-full px-4 py-3 border rounded-lg"
+              placeholder="Enter product name"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Description</label>
+            <label className="block text-sm font-medium mb-2">
+              Description
+            </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
               rows={3}
+              placeholder="Enter product description"
               className="w-full px-4 py-3 border rounded-lg"
             />
           </div>
@@ -142,6 +137,7 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
                 name="sku"
                 value={formData.sku}
                 onChange={handleChange}
+                placeholder="Enter SKU"
                 className="w-full px-4 py-3 border rounded-lg"
               />
             </div>
@@ -151,17 +147,21 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
               <input
                 name="category"
                 value={formData.category}
+                placeholder="Enter category"
                 onChange={handleChange}
                 className="w-full px-4 py-3 border rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Quantity *</label>
+              <label className="block text-sm font-medium mb-2">
+                Quantity *
+              </label>
               <input
                 type="number"
                 name="quantity"
                 value={formData.quantity}
+                placeholder="Enter quantity"
                 onChange={handleChange}
                 className="w-full px-4 py-3 border rounded-lg"
                 min="0"
@@ -175,6 +175,7 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
                 type="number"
                 name="price"
                 value={formData.price}
+                placeholder="Enter price"
                 onChange={handleChange}
                 className="w-full px-4 py-3 border rounded-lg"
                 min="0"
@@ -197,7 +198,7 @@ export default function ItemForm({ item, onClose }: ItemFormProps) {
               disabled={loading}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50"
             >
-              {loading ? 'Saving...' : item ? 'Update Item' : 'Add Item'}
+              {loading ? "Saving..." : item ? "Update Item" : "Add Item"}
             </button>
           </div>
         </form>

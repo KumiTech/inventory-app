@@ -1,121 +1,114 @@
-// import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-// import { User, AuthError } from '@supabase/supabase-js';
-// import { supabase } from '../lib/supabase';
+import { createContext, useContext, useEffect, useState } from "react";
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+  fetchCurrentUser,
+} from "../services/authService";
 
-// type AuthContextType = {
-//   user: User | null;
-//   loading: boolean;
-//   signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-//   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-//   signOut: () => Promise<void>;
-// };
+// ===== Define Auth Context Type =====
+interface AuthContextType {
+  user: any;
+  loading: boolean;
+  signIn: (
+    email: string,
+    password: string,
+    rememberMe: boolean,
+  ) => Promise<void>;
+  signUp: (
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string,
+  ) => Promise<void>;
+  signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>; // <-- Added for Google auth
+}
 
-// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// ===== Create Context =====
+const AuthContext = createContext<AuthContextType | null>(null);
 
-// export function AuthProvider({ children }: { children: ReactNode }) {
-//   const [user, setUser] = useState<User | null>(null);
-//   const [loading, setLoading] = useState(true);
+// ===== AuthProvider Component =====
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-//   useEffect(() => {
-//     supabase.auth.getSession().then(({ data: { session } }) => {
-//       setUser(session?.user ?? null);
-//       setLoading(false);
-//     });
+  /* ===== Load user if token exists ===== */
+  useEffect(() => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
 
-//     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-//       (async () => {
-//         setUser(session?.user ?? null);
-//       })();
-//     });
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-//     return () => subscription.unsubscribe();
-//   }, []);
+    fetchCurrentUser()
+      .then((res) => setUser(res.data))
+      .catch(() => {
+        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-//   const signUp = async (email: string, password: string) => {
-//     const { error } = await supabase.auth.signUp({
-//       email,
-//       password,
-//     });
-//     return { error };
-//   };
+  /* ===== LOGIN ===== */
+  const signIn = async (
+    email: string,
+    password: string,
+    rememberMe: boolean,
+  ) => {
+    const res = await loginUser(email, password);
 
-//   const signIn = async (email: string, password: string) => {
-//     const { error } = await supabase.auth.signInWithPassword({
-//       email,
-//       password,
-//     });
-//     return { error };
-//   };
-
-//   const signOut = async () => {
-//     await supabase.auth.signOut();
-//   };
-
-//   return (
-//     <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-// export function useAuth() {
-//   const context = useContext(AuthContext);
-//   if (context === undefined) {
-//     throw new Error('useAuth must be used within an AuthProvider');
-//   }
-//   return context;
-// }
-
-import { createContext, useContext, ReactNode, useState } from "react";
-
-type User = {
-  email: string;
-};
-
-type AuthResponse = {
-  error: { message: string } | null;
-};
-
-type AuthContextType = {
-  user: User | null;
-  signIn: (email: string, password: string) => Promise<AuthResponse>;
-  signUp: (email: string, password: string) => Promise<AuthResponse>;
-  signOut: () => void;
-};
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-
-  const signIn = async (email: string, password: string) => {
-    console.log("Mock sign in:", email);
-    setUser({ email });
-    return { error: null };
+    if (res.token) {
+      if (rememberMe) {
+        localStorage.setItem("token", res.token);
+      } else {
+        sessionStorage.setItem("token", res.token);
+      }
+      setUser(res.user);
+    }
   };
 
-  const signUp = async (email: string, password: string) => {
-    console.log("Mock sign up:", email);
-    setUser({ email });
-    return { error: null };
+  /* ===== REGISTER ===== */
+  const signUp = async (
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string,
+  ) => {
+    await registerUser(username, email, password, confirmPassword);
   };
 
-  const signOut = () => {
-    console.log("Mock sign out");
+  /* ===== LOGOUT ===== */
+  const signOut = async () => {
+    await logoutUser();
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
     setUser(null);
   };
 
+  /* ===== GOOGLE SIGN-IN (Stub for now) ===== */
+  const signInWithGoogle = async () => {
+    // Static placeholder for now
+    console.log("Google sign-in clicked");
+    // Example: simulate user login
+    const googleUser = { username: "GoogleUser", email: "google@example.com" };
+    setUser(googleUser);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signUp, signOut, signInWithGoogle }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
+// ===== Custom Hook =====
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };

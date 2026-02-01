@@ -1,54 +1,70 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase, InventoryItem } from '../lib/supabase';
-import { LogOut, Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
-import ItemForm from './ItemForm';
+import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { InventoryItem } from "../types";
+import { LogOut, Plus, Search, Edit2, Trash2, Package } from "lucide-react";
+import ItemForm from "./ItemForm";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchItems();
+    const loadItems = () => {
+      try {
+        const savedItems = localStorage.getItem("inventory_items");
+        if (savedItems) {
+          setItems(JSON.parse(savedItems));
+        }
+      } catch (err) {
+        console.error("Failed to load items from local storage", err);
+        setError("Failed to load inventory items");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadItems();
   }, []);
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('*')
-        .order('created_at', { ascending: false });
+  useEffect(() => {
+    localStorage.setItem("inventory_items", JSON.stringify(items));
+  }, [items]);
 
-      if (error) throw error;
-      setItems(data || []);
-    } catch (err) {
-      setError('Failed to load inventory items');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const handleDelete = (id: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    setItems(items.filter((item) => item.id !== id));
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+  const handleSave = async (
+    itemData: Omit<
+      InventoryItem,
+      "id" | "created_at" | "updated_at" | "user_id"
+    >,
+  ) => {
+    const now = new Date().toISOString();
 
-    try {
-      const { error } = await supabase
-        .from('inventory_items')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      setItems(items.filter((item) => item.id !== id));
-    } catch (err) {
-      alert('Failed to delete item');
-      console.error(err);
+    if (editingItem) {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editingItem.id
+            ? { ...item, ...itemData, updated_at: now }
+            : item,
+        ),
+      );
+    } else {
+      const newItem: InventoryItem = {
+        ...itemData,
+        id: crypto.randomUUID(),
+        created_at: now,
+        updated_at: now,
+        user_id: user?.email || "anonymous",
+      };
+      setItems((prev) => [newItem, ...prev]);
     }
   };
 
@@ -60,17 +76,20 @@ export default function Dashboard() {
   const handleFormClose = () => {
     setShowForm(false);
     setEditingItem(null);
-    fetchItems();
   };
 
-  const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = items.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalValue = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  const totalValue = items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -79,7 +98,9 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <Package className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-800">Inventory Manager</h1>
+              <h1 className="text-2xl font-bold text-gray-800">
+                Inventory Manager
+              </h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{user?.email}</span>
@@ -101,7 +122,9 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Items</p>
-                <p className="text-3xl font-bold text-gray-800">{items.length}</p>
+                <p className="text-3xl font-bold text-gray-800">
+                  {items.length}
+                </p>
               </div>
               <div className="bg-blue-100 rounded-full p-3">
                 <Package className="w-6 h-6 text-blue-600" />
@@ -125,7 +148,9 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Value</p>
-                <p className="text-3xl font-bold text-gray-800">${totalValue.toFixed(2)}</p>
+                <p className="text-3xl font-bold text-gray-800">
+                  ${totalValue.toFixed(2)}
+                </p>
               </div>
               <div className="bg-indigo-100 rounded-full p-3">
                 <Package className="w-6 h-6 text-indigo-600" />
@@ -137,7 +162,9 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h2 className="text-xl font-bold text-gray-800">Inventory Items</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Inventory Items
+              </h2>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -175,7 +202,9 @@ export default function Dashboard() {
               <div className="text-center py-12">
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg">
-                  {searchTerm ? 'No items found matching your search' : 'No inventory items yet'}
+                  {searchTerm
+                    ? "No items found matching your search"
+                    : "No inventory items yet"}
                 </p>
                 {!searchTerm && (
                   <button
@@ -215,7 +244,9 @@ export default function Dashboard() {
                     <tr key={item.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {item.name}
+                          </div>
                           {item.description && (
                             <div className="text-sm text-gray-500 truncate max-w-xs">
                               {item.description}
@@ -224,7 +255,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {item.sku || '-'}
+                        {item.sku || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {item.category && (
@@ -237,10 +268,10 @@ export default function Dashboard() {
                         <span
                           className={`text-sm font-medium ${
                             item.quantity < 10
-                              ? 'text-red-600'
+                              ? "text-red-600"
                               : item.quantity < 50
-                              ? 'text-yellow-600'
-                              : 'text-green-600'
+                                ? "text-yellow-600"
+                                : "text-green-600"
                           }`}
                         >
                           {item.quantity}
@@ -254,12 +285,16 @@ export default function Dashboard() {
                           <button
                             onClick={() => handleEdit(item)}
                             className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition"
+                            title="Edit item"
+                            aria-label="Edit item"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(item.id)}
                             className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition"
+                            title="Delete item"
+                            aria-label="Delete item"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -278,6 +313,7 @@ export default function Dashboard() {
         <ItemForm
           item={editingItem}
           onClose={handleFormClose}
+          onSave={handleSave}
         />
       )}
     </div>
