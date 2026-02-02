@@ -1,12 +1,12 @@
-export type InventoryItem = {
-  id: string;
-  user_id: string;
+export interface InventoryItem {
+  _id: string;
   name: string;
   description: string;
-  quantity: number;
-  price: number;
   category: string;
   sku: string;
-  created_at: string;
-  updated_at: string;
-};
+  quantity: number;
+  price: number;
+  createdBy?: { username: string; email: string };
+  created_at?: string;
+  updated_at?: string;
+}
